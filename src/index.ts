@@ -213,29 +213,78 @@ async function loadWallet() {
 async function transferToken(recipient: string, amount: number, denom: string = 'inj') {
     try {
         // Import dynamically to handle any potential import issues
-        const { PrivateKey } = await import('@injectivelabs/sdk-ts');
-        const { MsgSend } = await import('@injectivelabs/sdk-ts');
+        const { 
+            PrivateKey,
+            ChainGrpcAuthApi,
+            MsgBroadcasterWithPk
+        } = await import('@injectivelabs/sdk-ts');
+        const { getNetworkEndpoints, Network } = await import('@injectivelabs/networks');
+        
+        // Dynamic imports to avoid type issues
+        const sdkTs = await import('@injectivelabs/sdk-ts');
+        const MsgSend = sdkTs.MsgSend || (sdkTs as any).MsgSend;
         
         // Check if wallet exists
         if (!await checkWalletExists()) {
             throw new Error("Wallet not found. Please create a wallet first.");
         }
 
+        // Get wallet credentials
         const walletData = await loadWallet();
         const privateKey = PrivateKey.fromMnemonic(walletData.mnemonic);
         const injectiveAddress = privateKey.toBech32();
         
-        // Mock transaction example
-        // In a real implementation, you would:
-        // 1. Get account details from the chain
-        // 2. Create and sign the transaction
-        // 3. Broadcast to the network
+        // Normalize denom if needed
+        const normalizedDenom = normalizeDenom(denom);
         
-        // For this example, we'll simulate a successful transaction
-        const txHash = `injective${Date.now().toString(16)}`;
+        // Set up network endpoints - using Mainnet for consistency with other functions
+        const network = Network.Mainnet;
+        const endpoints = getNetworkEndpoints(network);
         
+        // Initialize required API clients
+        const chainGrpcAuthApi = new ChainGrpcAuthApi(endpoints.grpc);
+        
+        // Convert amount to base units (considering 18 decimals for INJ or appropriate decimals for other tokens)
+        const decimals = 18; // Default for INJ, ideally should be fetched from token metadata
+        const amountInBaseUnits = (amount * Math.pow(10, decimals)).toString();
+        
+        // Create MsgSend with correct structure for latest SDK version
+        const msgSendParams = {
+            srcInjectiveAddress: injectiveAddress,
+            dstInjectiveAddress: recipient,
+            amount: {
+                denom: normalizedDenom,
+                amount: amountInBaseUnits
+            }
+        };
+        
+        // Try different ways to create MsgSend based on SDK version
+        let msgSend;
+        if (typeof MsgSend.fromJSON === 'function') {
+            msgSend = MsgSend.fromJSON(msgSendParams);
+        } else if (typeof MsgSend === 'function') {
+            msgSend = new MsgSend(msgSendParams);
+        } else {
+            throw new Error("Unable to create MsgSend - incompatible SDK version");
+        }
+        
+        // Use MsgBroadcasterWithPk to broadcast the transaction
+        const msgBroadcaster = new MsgBroadcasterWithPk({
+            network,
+            privateKey: privateKey.toPrivateKeyHex(),
+            endpoints: endpoints
+        });
+        
+        console.error(`Broadcasting transfer of ${amount} ${denom} to ${recipient}...`);
+        const txResponse = await msgBroadcaster.broadcast({
+            msgs: [msgSend]
+        });
+        
+        console.error(`Transaction successful: ${txResponse.txHash}`);
+        
+        // Return transaction details
         return {
-            transactionHash: txHash,
+            transactionHash: txResponse.txHash,
             amount,
             denom,
             recipient,
@@ -263,7 +312,7 @@ async function queryBalance(denom: string = 'inj') {
         const injectiveAddress = privateKey.toBech32();
         
         // Set up the network endpoints and Bank API client
-        const network = Network.Testnet; // Use Testnet for development, Network.Mainnet for production
+        const network = Network.Mainnet; // Use Testnet for development, Network.Mainnet for production
         const endpoints = getNetworkEndpoints(network);
         const chainGrpcBankApi = new ChainGrpcBankApi(endpoints.grpc);
         
@@ -315,7 +364,7 @@ async function deployToken(name: string, symbol: string, initialSupply: number, 
         const injectiveAddress = privateKey.toBech32();
         
         // Network setup - using testnet for development, use Network.Mainnet for production
-        const network = Network.Testnet;
+        const network = Network.Mainnet;
         const endpoints = getNetworkEndpoints(network);
         
         // Initialize required API clients
@@ -453,7 +502,7 @@ async function swapToken(fromDenom: string, toDenom: string, amount: number, sli
         console.error(`Preparing to swap ${amount} ${fromDenom} to ${toDenom}`);
         
         // Set up network and API clients
-        const network = Network.Testnet; // Use Testnet for development, Network.Mainnet for production
+        const network = Network.Mainnet; // Use Testnet for development, Network.Mainnet for production
         const endpoints = getNetworkEndpoints(network);
         
         // Initialize required API clients
