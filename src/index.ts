@@ -238,7 +238,7 @@ async function transferToken(recipient: string, amount: number, denom: string = 
         const normalizedDenom = normalizeDenom(denom);
         
         // Set up network endpoints - using Mainnet for consistency with other functions
-        const network = Network.Mainnet;
+        const network = Network.Testnet;
         const endpoints = getNetworkEndpoints(network);
         
         // Initialize required API clients
@@ -312,7 +312,7 @@ async function queryBalance(denom: string = 'inj') {
         const injectiveAddress = privateKey.toBech32();
         
         // Set up the network endpoints and Bank API client
-        const network = Network.Mainnet; // Use Testnet for development, Network.Mainnet for production
+        const network = Network.Testnet; // Use Testnet for development, Network.Testnet for production
         const endpoints = getNetworkEndpoints(network);
         const chainGrpcBankApi = new ChainGrpcBankApi(endpoints.grpc);
         
@@ -363,8 +363,8 @@ async function deployToken(name: string, symbol: string, initialSupply: number, 
         const privateKey = PrivateKey.fromMnemonic(walletData.mnemonic);
         const injectiveAddress = privateKey.toBech32();
         
-        // Network setup - using testnet for development, use Network.Mainnet for production
-        const network = Network.Mainnet;
+        // Network setup - using testnet for development, use Network.Testnet for production
+        const network = Network.Testnet;
         const endpoints = getNetworkEndpoints(network);
         
         // Initialize required API clients
@@ -502,7 +502,7 @@ async function swapToken(fromDenom: string, toDenom: string, amount: number, sli
         console.error(`Preparing to swap ${amount} ${fromDenom} to ${toDenom}`);
         
         // Set up network and API clients
-        const network = Network.Mainnet; // Use Testnet for development, Network.Mainnet for production
+        const network = Network.Testnet; // Use Testnet for development, Network.Testnet for production
         const endpoints = getNetworkEndpoints(network);
         
         // Initialize required API clients
