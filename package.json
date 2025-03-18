@@ -31,5 +31,13 @@
   },
   "files": [
     "dist"
-  ]
+  ],
+  "mcpServers": {
+    "injective-wallet": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/inj-mcp/build/index.js"
+      ]
+    }
+  }
 }
