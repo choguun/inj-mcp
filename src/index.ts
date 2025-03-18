@@ -250,7 +250,8 @@ async function transferToken(recipient: string, amount: number, denom: string = 
 async function queryBalance(denom: string = 'inj') {
     try {
         // Import dynamically to handle any potential import issues
-        const { PrivateKey } = await import('@injectivelabs/sdk-ts');
+        const { PrivateKey, ChainGrpcBankApi } = await import('@injectivelabs/sdk-ts');
+        const { getNetworkEndpoints, Network } = await import('@injectivelabs/networks');
         
         // Check if wallet exists
         if (!await checkWalletExists()) {
@@ -261,13 +262,27 @@ async function queryBalance(denom: string = 'inj') {
         const privateKey = PrivateKey.fromMnemonic(walletData.mnemonic);
         const injectiveAddress = privateKey.toBech32();
         
-        // In a real implementation, you would query the chain
-        // For this example, we'll return a mock balance
-        const mockBalance = 10.5;
+        // Set up the network endpoints and Bank API client
+        const network = Network.Testnet; // Use Testnet for development, Network.Mainnet for production
+        const endpoints = getNetworkEndpoints(network);
+        const chainGrpcBankApi = new ChainGrpcBankApi(endpoints.grpc);
+        
+        // Query the chain for the balance
+        const normalizedDenom = normalizeDenom(denom);
+        const balanceResponse = await chainGrpcBankApi.fetchBalance({
+            accountAddress: injectiveAddress,
+            denom: normalizedDenom
+        });
+        
+        // Convert to a number (handle decimal conversion based on token's decimal places)
+        const decimals = 18; // Default for INJ, ideally should be fetched from token metadata
+        const balance = balanceResponse && balanceResponse.amount 
+            ? parseFloat(balanceResponse.amount) / Math.pow(10, decimals)
+            : 0;
         
         return {
             address: injectiveAddress,
-            balance: mockBalance,
+            balance: balance,
             denom: denom
         };
     } catch (error: any) {
