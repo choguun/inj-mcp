@@ -1,0 +1,60 @@
+# Dependency directories
+node_modules/
+
+# TypeScript output directory
+dist/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Build artifacts
+build/
+out/
+coverage/
+
+# Cursor app files
+.cursor/
+
+# Cache
+.npm/
+.eslintcache
+.tsbuildinfo
+
+# API keys and secrets
+*.pem
+*.key
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.swp
+*~
+
+# Injective wallet files
+injective_wallet.json
+*_wallet.json
+
+# MCP server configuration files
+claude_desktop_config.json
+
+# Injective SDK specific
+.injective/ 
