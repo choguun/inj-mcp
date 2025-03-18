@@ -36,7 +36,7 @@
     "injective-wallet": {
       "command": "node",
       "args": [
-        "/absolute/path/to/inj-mcp/build/index.js"
+        "/absolute/path/to/inj-mcp/dist/index.js"
       ]
     }
   }
