@@ -36,6 +36,19 @@ An MCP server implementation enabling wallet creation and token transfers on the
     - Retrieves the balance of the specified token denomination for your wallet.
     - Returns address and balance information.
 
+### `swap-token`
+- Description: Swap one token for another on Injective using spot market orders.
+- Inputs:
+    - fromDenom (string): Source token denomination (e.g., 'inj', 'peggy0x...').
+    - toDenom (string): Destination token denomination (e.g., 'inj', 'factory/...').
+    - amount (number): Amount of source token to swap.
+    - slippage (number, optional): Slippage tolerance percentage (default: 1%).
+- Behavior:
+    - Finds the appropriate spot market for the token pair.
+    - Places a market order to execute the swap at the best available price.
+    - Returns information about the swap including estimated output amount, execution price, and transaction hash.
+    - Falls back to simulation mode when a real swap cannot be executed (displays a clear "SIMULATED" label).
+
 ## Configuration
 
 ### Usage with Claude Desktop
