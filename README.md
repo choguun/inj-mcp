@@ -100,4 +100,9 @@ This MCP server is licensed under the MIT License.
 
 ---
 
-Crafted by [Magnet Labs](https://magnetlabs.xyz) with our vibrant AI & Crypto community
+## Screenshots
+
+![create account](./ss1.png "create account")
+![query balance](./ss2.png "query balance")
+![transfer token](./ss3.png "transfer token")
+![swap token](./ss4.png "swap token")
