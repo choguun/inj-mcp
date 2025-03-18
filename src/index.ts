@@ -40,6 +40,13 @@ const QueryBalanceSchema = z.object({
     denom: z.string().default("inj")
 });
 
+const DeployTokenSchema = z.object({
+    name: z.string().min(1),
+    symbol: z.string().min(1).max(12),
+    initialSupply: z.number().positive(),
+    decimals: z.number().min(0).max(18).default(18)
+});
+
 // List available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
@@ -85,6 +92,32 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                             description: "Token denomination (default: inj)",
                         }
                     },
+                },
+            },
+            {
+                name: "deploy-token",
+                description: "Deploy a new token on Injective using CosmWasm",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        name: {
+                            type: "string",
+                            description: "Token name (e.g., 'My Token')",
+                        },
+                        symbol: {
+                            type: "string",
+                            description: "Token symbol (e.g., 'MTK')",
+                        },
+                        initialSupply: {
+                            type: "number",
+                            description: "Initial token supply (e.g., 1000000)",
+                        },
+                        decimals: {
+                            type: "number",
+                            description: "Number of decimals for the token (default: 18)",
+                        }
+                    },
+                    required: ["name", "symbol", "initialSupply"],
                 },
             }
         ],
@@ -210,6 +243,122 @@ async function queryBalance(denom: string = 'inj') {
     }
 }
 
+async function deployToken(name: string, symbol: string, initialSupply: number, decimals: number = 18) {
+    try {
+        // Import required modules from Injective SDK
+        const { 
+            PrivateKey,
+            MsgCreateDenom, 
+            MsgMint,
+            MsgSetDenomMetadata,
+            ChainGrpcAuthApi,
+            MsgBroadcasterWithPk
+        } = await import('@injectivelabs/sdk-ts');
+        const { getNetworkEndpoints, Network } = await import('@injectivelabs/networks');
+        
+        // Check if wallet exists
+        if (!await checkWalletExists()) {
+            throw new Error("Wallet not found. Please create a wallet first.");
+        }
+
+        // Get wallet credentials
+        const walletData = await loadWallet();
+        const privateKey = PrivateKey.fromMnemonic(walletData.mnemonic);
+        const injectiveAddress = privateKey.toBech32();
+        
+        // Network setup - using testnet for development, use Network.Mainnet for production
+        const network = Network.Testnet;
+        const endpoints = getNetworkEndpoints(network);
+        
+        // Initialize required API clients
+        const chainGrpcAuthApi = new ChainGrpcAuthApi(endpoints.grpc);
+        
+        // Create a subdenom for the token (simple alphanumeric version of symbol)
+        const subdenom = symbol.toLowerCase().replace(/[^a-z0-9]/g, "");
+        
+        console.error(`Creating token with subdenom: ${subdenom}`);
+        
+        // 1. Create the token denom using Token Factory
+        const msgCreateDenom = MsgCreateDenom.fromJSON({
+            subdenom,
+            sender: injectiveAddress
+        });
+        
+        // 2. Prepare the mint message to create initial supply
+        // The denom format is factory/{creator_address}/{subdenom}
+        const factoryDenom = `factory/${injectiveAddress}/${subdenom}`;
+        
+        // Initial supply with decimals
+        const mintAmount = initialSupply * Math.pow(10, decimals);
+        
+        const msgMint = MsgMint.fromJSON({
+            sender: injectiveAddress,
+            amount: {
+                denom: factoryDenom,
+                amount: mintAmount.toString()
+            }
+        });
+        
+        // 3. Set token metadata
+        const msgSetDenomMetadata = MsgSetDenomMetadata.fromJSON({
+            sender: injectiveAddress,
+            metadata: {
+                description: `Token created by ${injectiveAddress}`,
+                base: factoryDenom,
+                display: symbol,
+                name: name,
+                symbol: symbol,
+                uri: "",
+                uriHash: "",
+                denomUnits: [
+                    {
+                        denom: factoryDenom,
+                        exponent: 0,
+                        aliases: []
+                    },
+                    {
+                        denom: symbol,
+                        exponent: decimals,
+                        aliases: []
+                    }
+                ],
+                // Add required decimals field
+                decimals: decimals
+            }
+        });
+        
+        // Use MsgBroadcasterWithPk to simplify broadcasting multiple messages
+        const msgBroadcaster = new MsgBroadcasterWithPk({
+            network,
+            privateKey: privateKey.toPrivateKeyHex(),
+            endpoints: endpoints
+        });
+        
+        // Broadcast all messages in sequence
+        console.error("Broadcasting transaction...");
+        const txResponse = await msgBroadcaster.broadcast({
+            msgs: [msgCreateDenom, msgMint, msgSetDenomMetadata]
+        });
+        
+        console.error(`Transaction successful: ${txResponse.txHash}`);
+        
+        // Return token details
+        return {
+            contractAddress: null, // Token Factory doesn't use contract addresses
+            denom: factoryDenom,
+            name,
+            symbol,
+            totalSupply: initialSupply,
+            decimals,
+            creator: injectiveAddress,
+            txHash: txResponse.txHash
+        };
+    } catch (error: any) {
+        console.error("Error deploying token:", error);
+        throw error;
+    }
+}
+
 // Handle tool execution
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
@@ -254,6 +403,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     {
                         type: "text",
                         text: `Your wallet (${result.address}) has a balance of ${result.balance} ${result.denom}`
+                    },
+                ],
+            };
+        } else if (name === "deploy-token") {
+            const { name: tokenName, symbol, initialSupply, decimals } = DeployTokenSchema.parse(args);
+            const result = await deployToken(tokenName, symbol, initialSupply, decimals);
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `Successfully deployed token "${tokenName}" (${symbol}) on Injective!\n\n` +
+                            `Denom: ${result.denom}\n` +
+                            `Total Supply: ${initialSupply} ${symbol}\n` +
+                            `Decimals: ${decimals}\n` +
+                            `Creator: ${result.creator}\n` +
+                            `Transaction Hash: ${result.txHash}`
                     },
                 ],
             };
